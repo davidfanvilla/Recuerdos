@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: recuerdos-privados
+    env: node
+    plan: free
+    buildCommand: ""
+    startCommand: node server.js
+    envVars:
+      - key: SITE_PASSWORD
+        sync: false
+      - key: DATA_DIR
+        value: /var/data
+    disk:
+      name: recuerdos-data
+      mountPath: /var/data
+      sizeGB: 1

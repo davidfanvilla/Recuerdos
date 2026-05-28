@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#050505" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Recuerdos" />
+    <title>Red de recuerdos</title>
+    <link rel="manifest" href="./manifest.webmanifest" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="memory-app" aria-label="Red interactiva de recuerdos">
+      <canvas id="networkCanvas"></canvas>
+
+      <header class="topbar">
+        <div class="brand">
+          <h1>Recuerdos</h1>
+        </div>
+
+        <div class="actions">
+          <button id="shuffleButton" type="button" title="Centrar universo" aria-label="Centrar universo">
+            Centrar
+          </button>
+          <label class="upload-button">
+            <input id="photoInput" type="file" accept="image/*" multiple />
+            Agregar
+          </label>
+        </div>
+      </header>
+
+      <section id="emptyState" class="empty-state">
+        <p>Regalo interactivo</p>
+        <h2>Tus recuerdos</h2>
+        <label class="primary-upload">
+          <input id="heroPhotoInput" type="file" accept="image/*" multiple />
+          Seleccionar recuerdos
+        </label>
+        <span>Cada esfera guarda una foto.</span>
+      </section>
+
+      <div class="status-bar" aria-live="polite">
+        <span id="memoryCount">0 recuerdos</span>
+        <span id="yearRange">Sin años todavía</span>
+        <span id="storageState">Arrastra 360</span>
+      </div>
+
+      <aside id="memoryPanel" class="memory-panel" aria-live="polite" aria-label="Recuerdo seleccionado">
+        <button id="closePanelButton" class="panel-close" type="button" aria-label="Cerrar recuerdo">Cerrar</button>
+        <img id="selectedPhoto" alt="" draggable="false" />
+        <div class="panel-copy">
+          <p id="selectedYear">Año</p>
+          <h2 id="selectedTitle">Recuerdo</h2>
+          <span id="selectedSource">Detectado desde metadatos</span>
+        </div>
+        <div class="panel-actions">
+          <button id="previousButton" type="button">Anterior</button>
+          <button id="nextButton" type="button">Siguiente</button>
+        </div>
+      </aside>
+
+      <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+      <section id="authOverlay" class="auth-overlay is-hidden" aria-label="Entrada privada">
+        <form id="authForm" class="auth-card">
+          <h2>Recuerdos</h2>
+          <p>Entrada privada</p>
+          <input id="authPassword" type="password" autocomplete="current-password" placeholder="Clave" />
+          <button type="submit">Entrar</button>
+          <span id="authMessage" aria-live="polite"></span>
+        </form>
+      </section>
+    </main>
+
+    <script src="./memories.js"></script>
+    <script src="./app.js"></script>
+  </body>
+</html>
