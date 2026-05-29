@@ -40,8 +40,15 @@ body {
 }
 
 button,
-input {
+input,
+textarea {
   font: inherit;
+}
+
+textarea {
+  user-select: text;
+  -webkit-user-select: text;
+  -webkit-touch-callout: default;
 }
 
 button,
@@ -68,7 +75,8 @@ button:hover,
 
 button:focus-visible,
 .upload-button:focus-within,
-.primary-upload:focus-within {
+.primary-upload:focus-within,
+textarea:focus-visible {
   outline: 3px solid rgba(247, 243, 234, 0.22);
   outline-offset: 2px;
 }
@@ -152,7 +160,8 @@ button:focus-visible,
 }
 
 .actions,
-.panel-actions {
+.panel-actions,
+.panel-edit-actions {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -165,6 +174,7 @@ button:focus-visible,
 .actions button,
 .upload-button,
 .panel-actions button,
+.panel-edit-actions button,
 .panel-close {
   min-height: 40px;
   padding: 0 13px;
@@ -289,7 +299,7 @@ button:focus-visible,
   right: 24px;
   top: 96px;
   display: grid;
-  width: min(360px, calc(100vw - 32px));
+  width: min(420px, calc(100vw - 32px));
   max-height: calc(100vh - 128px);
   gap: 16px;
   padding: 14px;
@@ -314,9 +324,10 @@ button:focus-visible,
 
 .memory-panel img {
   width: 100%;
+  max-height: min(58vh, 560px);
   aspect-ratio: 4 / 5;
   border-radius: 6px;
-  object-fit: cover;
+  object-fit: contain;
   background: var(--panel-strong);
   pointer-events: none;
   user-select: none;
@@ -337,7 +348,7 @@ button:focus-visible,
 }
 
 .panel-copy p,
-.panel-copy h2,
+.panel-copy textarea,
 .panel-copy span {
   margin: 0;
 }
@@ -350,10 +361,21 @@ button:focus-visible,
   text-transform: uppercase;
 }
 
-.panel-copy h2 {
-  overflow-wrap: anywhere;
-  font-size: clamp(1.3rem, 3vw, 2rem);
-  line-height: 1.05;
+.panel-copy textarea {
+  width: 100%;
+  min-height: 86px;
+  resize: vertical;
+  padding: 11px 12px;
+  border: 1px solid rgba(247, 243, 234, 0.14);
+  border-radius: 8px;
+  background: rgba(247, 243, 234, 0.055);
+  color: var(--ink);
+  font-size: clamp(1rem, 2.5vw, 1.24rem);
+  line-height: 1.28;
+}
+
+.panel-copy textarea::placeholder {
+  color: var(--quiet);
 }
 
 .panel-copy span {
@@ -363,6 +385,24 @@ button:focus-visible,
 
 .panel-actions button {
   flex: 1;
+}
+
+.panel-edit-actions {
+  align-items: stretch;
+}
+
+.panel-edit-actions button {
+  flex: 1;
+}
+
+.danger-button {
+  border-color: rgba(247, 128, 128, 0.28);
+  color: #ffd6d6;
+}
+
+.danger-button:hover {
+  border-color: rgba(247, 128, 128, 0.44);
+  background: rgba(247, 128, 128, 0.12);
 }
 
 .toast {
@@ -528,12 +568,15 @@ button:focus-visible,
   }
 
   .memory-panel {
-    top: auto;
-    right: 12px;
-    bottom: max(12px, env(safe-area-inset-bottom));
-    left: 12px;
+    top: max(8px, env(safe-area-inset-top));
+    right: 8px;
+    bottom: max(8px, env(safe-area-inset-bottom));
+    left: 8px;
+    grid-template-rows: auto minmax(0, 1fr) auto auto auto;
     width: auto;
-    max-height: min(74vh, 620px);
+    max-height: none;
+    gap: 12px;
+    padding: 12px;
     overflow: auto;
     transform: translateY(18px);
   }
@@ -543,7 +586,23 @@ button:focus-visible,
   }
 
   .memory-panel img {
-    aspect-ratio: 4 / 5;
+    height: 100%;
+    min-height: 0;
+    max-height: none;
+    aspect-ratio: auto;
+    object-fit: contain;
+  }
+
+  .panel-copy textarea {
+    min-height: 74px;
+    max-height: 118px;
+    resize: none;
+    font-size: 1rem;
+  }
+
+  .panel-actions,
+  .panel-edit-actions {
+    gap: 8px;
   }
 }
 
@@ -558,6 +617,123 @@ button:focus-visible,
 
   .status-bar span {
     font-size: 0.74rem;
+  }
+}
+
+@media (max-width: 520px) and (min-height: 760px) {
+  @supports (height: 100svh) {
+    body,
+    .memory-app {
+      min-height: 100svh;
+    }
+  }
+
+  .topbar {
+    width: calc(100vw - 28px);
+    gap: 12px;
+    padding-top: max(16px, env(safe-area-inset-top));
+  }
+
+  .brand h1 {
+    max-width: 46vw;
+    font-size: clamp(1.32rem, 5.3vw, 1.58rem);
+  }
+
+  .actions button,
+  .upload-button {
+    min-height: 44px;
+    max-width: none;
+    padding: 0 13px;
+    border-radius: 9px;
+    font-size: 0.88rem;
+  }
+
+  .empty-state {
+    top: 52%;
+    width: calc(100vw - 44px);
+    padding: 24px 20px;
+  }
+
+  .status-bar {
+    bottom: max(16px, env(safe-area-inset-bottom));
+    width: calc(100vw - 24px);
+    gap: 7px;
+    font-size: 0.74rem;
+  }
+
+  .status-bar span {
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    min-height: 34px;
+    padding: 0 7px;
+  }
+
+  .memory-panel {
+    top: max(10px, env(safe-area-inset-top));
+    right: 10px;
+    bottom: max(10px, env(safe-area-inset-bottom));
+    left: 10px;
+    gap: 10px;
+    padding: 12px;
+    border-radius: 10px;
+  }
+
+  .panel-close,
+  .panel-actions button,
+  .panel-edit-actions button {
+    min-height: 44px;
+  }
+
+  .memory-panel img {
+    height: clamp(410px, 58svh, 560px);
+    min-height: 0;
+    max-height: none;
+    border-radius: 8px;
+  }
+
+  .panel-copy {
+    gap: 7px;
+  }
+
+  .panel-copy p {
+    font-size: 0.78rem;
+  }
+
+  .panel-copy span {
+    display: none;
+  }
+
+  .panel-copy textarea {
+    min-height: 84px;
+    max-height: 108px;
+    padding: 10px 11px;
+    font-size: 1rem;
+  }
+
+  .panel-actions,
+  .panel-edit-actions {
+    gap: 8px;
+  }
+
+  .panel-actions button,
+  .panel-edit-actions button {
+    padding: 0 9px;
+    font-size: 0.87rem;
+  }
+
+  .toast {
+    bottom: max(72px, calc(env(safe-area-inset-bottom) + 72px));
+  }
+}
+
+@media (max-width: 520px) and (min-height: 900px) {
+  .memory-panel img {
+    height: clamp(500px, 62svh, 620px);
+  }
+
+  .panel-copy textarea {
+    max-height: 124px;
   }
 }
 

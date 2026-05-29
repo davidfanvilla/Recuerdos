@@ -2,7 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#050505" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-title" content="Recuerdos" />
@@ -51,12 +51,22 @@
         <img id="selectedPhoto" alt="" draggable="false" />
         <div class="panel-copy">
           <p id="selectedYear">Año</p>
-          <h2 id="selectedTitle">Recuerdo</h2>
+          <textarea
+            id="selectedTitle"
+            maxlength="180"
+            rows="3"
+            aria-label="Texto del recuerdo"
+            placeholder="Escribe un recuerdo..."
+          ></textarea>
           <span id="selectedSource">Detectado desde metadatos</span>
         </div>
         <div class="panel-actions">
           <button id="previousButton" type="button">Anterior</button>
           <button id="nextButton" type="button">Siguiente</button>
+        </div>
+        <div class="panel-edit-actions">
+          <button id="saveTextButton" type="button">Guardar texto</button>
+          <button id="deleteMemoryButton" class="danger-button" type="button">Quitar foto</button>
         </div>
       </aside>
 

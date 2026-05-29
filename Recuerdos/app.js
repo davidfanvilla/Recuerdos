@@ -15,6 +15,8 @@ const selectedYear = document.querySelector("#selectedYear");
 const selectedSource = document.querySelector("#selectedSource");
 const previousButton = document.querySelector("#previousButton");
 const nextButton = document.querySelector("#nextButton");
+const saveTextButton = document.querySelector("#saveTextButton");
+const deleteMemoryButton = document.querySelector("#deleteMemoryButton");
 const toast = document.querySelector("#toast");
 const storageState = document.querySelector("#storageState");
 const authOverlay = document.querySelector("#authOverlay");
@@ -27,6 +29,7 @@ const DB_NAME = "birthday-memory-universe";
 const DB_VERSION = 1;
 const STORE_NAME = "photos";
 const HIDDEN_PRESET_KEY = "hidden-preset-memory-ids";
+const EDITED_TEXT_KEY = "edited-memory-texts";
 const MAX_IMAGE_EDGE = 1800;
 const JPEG_QUALITY = 0.86;
 const palette = ["#f7f3ea", "#d7d1c5", "#b9b1a4", "#ffffff", "#8f8c86"];
@@ -47,9 +50,17 @@ let dragState = null;
 let backendMode = false;
 let authenticated = false;
 
+function isLargeTouchPhone() {
+  const hasTouch = navigator.maxTouchPoints > 0 || window.matchMedia?.("(pointer: coarse)").matches;
+  return hasTouch && width <= 520 && height >= 760;
+}
+
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
+}
 
+function randomBetween(min, max) {
+  return min + Math.random() * (max - min);
 }
 
 function slugToTitle(name) {
@@ -59,6 +70,45 @@ function slugToTitle(name) {
     .replace(/\s+/g, " ")
     .trim()
     .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Recuerdo";
+}
+
+function cleanMemoryText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 180);
+}
+
+function isCameraFileTitle(value) {
+  const compact = cleanMemoryText(value).replace(/\s+/g, "").toUpperCase();
+  return /^(IMG|DSC|DSCF|PXL|PHOTO|VID|WA)\d{2,}([A-Z]{0,3}\d{0,6})?$/.test(compact) || /^SCREENSHOT\d/.test(compact);
+}
+
+function getMemoryText(memory) {
+  const text = cleanMemoryText(memory?.title);
+  return isCameraFileTitle(text) ? "" : text;
+}
+
+function readEditedTexts() {
+  try {
+    return JSON.parse(localStorage.getItem(EDITED_TEXT_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+function saveEditedText(id, text) {
+  if (!id) return;
+  const texts = readEditedTexts();
+  texts[id] = text;
+  try {
+    localStorage.setItem(EDITED_TEXT_KEY, JSON.stringify(texts));
+  } catch {
+    // The current screen is still updated even when this browser blocks localStorage.
+  }
 }
 
 function showToast(message) {
@@ -126,9 +176,9 @@ function saveHiddenPresetIds(ids) {
 }
 
 function resizeCanvas() {
-  dpr = Math.min(window.devicePixelRatio || 1, 2);
   width = window.innerWidth;
   height = window.innerHeight;
+  dpr = Math.min(window.devicePixelRatio || 1, isLargeTouchPhone() ? 2.35 : 2);
   canvas.width = Math.floor(width * dpr);
   canvas.height = Math.floor(height * dpr);
   canvas.style.width = `${width}px`;
@@ -139,10 +189,11 @@ function resizeCanvas() {
 }
 
 function createAmbientNodes() {
+  const largeTouchPhone = isLargeTouchPhone();
   const nodeCount = clamp(Math.round((width * height) / 36000), 18, 64);
-  const particleCount = clamp(Math.round((width * height) / 760), 430, 1550);
-  const bandCenter = height * (width < 760 ? 0.53 : 0.54);
-  const sceneRadius = Math.min(width, height) * (width < 760 ? 0.5 : 0.42);
+  const particleCount = clamp(Math.round((width * height) / (largeTouchPhone ? 620 : 760)), 430, largeTouchPhone ? 1850 : 1550);
+  const bandCenter = height * (largeTouchPhone ? 0.52 : width < 760 ? 0.53 : 0.54);
+  const sceneRadius = Math.min(width, height) * (largeTouchPhone ? 0.56 : width < 760 ? 0.5 : 0.42);
 
   ambientNodes = Array.from({ length: nodeCount }, (_, index) => ({
     x3: randomBetween(-sceneRadius, sceneRadius),
@@ -192,13 +243,14 @@ function layoutMemories(immediate = false) {
   const total = memories.length;
   if (!total) return;
 
-  const sceneRadius = Math.min(width, height) * (width < 760 ? 0.34 : 0.32);
-  const ringRadius = Math.min(width, height) * (width < 760 ? 0.28 : 0.25);
+  const largeTouchPhone = isLargeTouchPhone();
+  const sceneRadius = Math.min(width, height) * (largeTouchPhone ? 0.37 : width < 760 ? 0.34 : 0.32);
+  const ringRadius = Math.min(width, height) * (largeTouchPhone ? 0.31 : width < 760 ? 0.28 : 0.25);
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
   const baseNodeRadius = clamp(
-    (width < 760 ? 34 : 40) + 86 / Math.sqrt(total + 2),
-    width < 760 ? 36 : 42,
-    width < 760 ? 58 : 70,
+    (largeTouchPhone ? 39 : width < 760 ? 34 : 40) + 86 / Math.sqrt(total + 2),
+    largeTouchPhone ? 43 : width < 760 ? 36 : 42,
+    largeTouchPhone ? 64 : width < 760 ? 58 : 70,
   );
 
   memories.forEach((memory, index) => {
@@ -238,7 +290,7 @@ function projectPoint(x, y, z) {
 
   return {
     x: width / 2 + x1 * scale,
-    y: height * (width < 760 ? 0.53 : 0.52) + y1 * scale,
+    y: height * (isLargeTouchPhone() ? 0.52 : width < 760 ? 0.53 : 0.52) + y1 * scale,
     z: z2,
     scale,
   };
@@ -328,7 +380,7 @@ function drawYearLabel(memory, hoverAmount) {
 }
 
 function getRemoveButton(memory) {
-  const radius = clamp(10 * memory.scale, 8, 14);
+  const radius = isLargeTouchPhone() ? clamp(12 * memory.scale, 11, 17) : clamp(10 * memory.scale, 8, 14);
   const offset = memory.projectedRadius * 0.74;
   return {
     x: memory.sx + offset,
@@ -642,7 +694,8 @@ function getHoveredMemoryIndex() {
     .sort((a, b) => b.memory.depth - a.memory.depth);
 
   for (const { memory, index } of candidates) {
-    if (Math.hypot(pointer.x - memory.sx, pointer.y - memory.sy) < memory.projectedRadius + 14) return index;
+    const touchPadding = isLargeTouchPhone() ? 22 : 14;
+    if (Math.hypot(pointer.x - memory.sx, pointer.y - memory.sy) < memory.projectedRadius + touchPadding) return index;
   }
   return -1;
 }
@@ -654,7 +707,7 @@ function getRemoveButtonIndex() {
 
   for (const { memory, index } of candidates) {
     const button = getRemoveButton(memory);
-    if (Math.hypot(pointer.x - button.x, pointer.y - button.y) <= button.r + 5) return index;
+    if (Math.hypot(pointer.x - button.x, pointer.y - button.y) <= button.r + (isLargeTouchPhone() ? 10 : 5)) return index;
   }
   return -1;
 }
@@ -663,9 +716,10 @@ function openMemory(index) {
   if (!memories[index]) return;
   selectedIndex = index;
   const memory = memories[index];
+  const text = getMemoryText(memory);
   selectedPhoto.src = memory.src;
-  selectedPhoto.alt = memory.title;
-  selectedTitle.textContent = memory.title;
+  selectedPhoto.alt = text || "Recuerdo";
+  selectedTitle.value = text;
   selectedYear.textContent = memory.year ? String(memory.year) : "Año por confirmar";
   selectedSource.textContent = memory.sourceLabel || "Año pendiente";
   panel.classList.add("is-open");
@@ -684,15 +738,15 @@ function showRelativeMemory(direction) {
 }
 
 async function removeMemory(index) {
+  const memory = memories[index];
+  if (!memory) return;
+  closeMemory();
+
   if (backendMode && authenticated) {
     await removeBackendMemory(index).catch((error) => showToast(error.message));
     return;
   }
 
-  const memory = memories[index];
-  if (!memory) return;
-
-  closeMemory();
   memories.splice(index, 1);
 
   if (memory.local) {
@@ -711,6 +765,29 @@ async function removeMemory(index) {
   layoutMemories(true);
   updateStatus();
   showToast("Foto quitada.");
+}
+
+async function saveSelectedMemoryText() {
+  const memory = memories[selectedIndex];
+  if (!memory) return;
+
+  const text = cleanMemoryText(selectedTitle.value);
+  selectedTitle.value = text;
+  memory.title = text;
+  selectedPhoto.alt = text || "Recuerdo";
+
+  try {
+    if (backendMode && authenticated && memory.server) {
+      await updateBackendMemoryText(memory.id, text);
+    } else if (memory.local) {
+      await updateMemoryRecordTitle(memory.id, text);
+    } else {
+      saveEditedText(memory.id, text);
+    }
+    showToast(text ? "Texto guardado." : "Texto limpiado.");
+  } catch (error) {
+    showToast(error.message || "No se pudo guardar el texto.");
+  }
 }
 
 async function addFiles(fileList) {
@@ -779,7 +856,7 @@ async function fileToMemory(file) {
   const src = URL.createObjectURL(blob);
   const image = await loadImage(src);
   const id = makeId();
-  const title = slugToTitle(file.name);
+  const title = "";
   const savedLabel = `${sourceLabel}. Guardado en este celular`;
 
   return {
@@ -881,6 +958,16 @@ function deleteMemoryRecord(id) {
   return runStoreTransaction("readwrite", (store) => store.delete(id));
 }
 
+function updateMemoryRecordTitle(id, title) {
+  return runStoreTransaction("readwrite", (store) => {
+    const request = store.get(id);
+    request.onsuccess = () => {
+      const record = request.result;
+      if (record) store.put({ ...record, title, updatedAt: Date.now() });
+    };
+  });
+}
+
 function loadMemoryRecords() {
   return runStoreTransaction(
     "readonly",
@@ -909,7 +996,7 @@ async function loadSavedMemories() {
         const image = await loadImage(src);
         return {
           id: record.id,
-          title: record.title || "Recuerdo",
+          title: record.title || "",
           src,
           year: record.year || "",
           sourceLabel: record.sourceLabel || "Guardado en este celular",
@@ -1074,7 +1161,7 @@ async function loadBackendMemories() {
       const protectedPhoto = await loadProtectedImage(memory.imageUrl);
       return {
         id: memory.id,
-        title: memory.title || "Recuerdo",
+        title: memory.title || "",
         src: protectedPhoto.src,
         year: memory.year || "",
         sourceLabel: memory.sourceLabel || "Foto privada protegida por clave",
@@ -1109,18 +1196,27 @@ async function removeBackendMemory(index) {
   showToast("Foto quitada del servidor.");
 }
 
+async function updateBackendMemoryText(id, title) {
+  await readApiJson(`/api/memories/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
 async function loadPresetMemories() {
   const preset = Array.isArray(window.PHOTO_MEMORIES) ? window.PHOTO_MEMORIES : [];
   const hiddenPresetIds = readHiddenPresetIds();
+  const editedTexts = readEditedTexts();
   const presetMemories = await Promise.all(
     preset
       .map((memory, index) => ({ memory, presetIndex: index, id: memory.id || `preset-${index}` }))
       .filter((item) => !hiddenPresetIds.has(item.id))
       .map(async ({ memory, presetIndex, id }) => {
         const image = await loadImage(memory.src);
+        const savedText = Object.prototype.hasOwnProperty.call(editedTexts, id) ? editedTexts[id] : null;
         return {
           id,
-          title: memory.title || slugToTitle(memory.src || `Recuerdo ${presetIndex + 1}`),
+          title: savedText ?? memory.title ?? "",
           src: memory.src,
           year: memory.year || "",
           sourceLabel: memory.sourceLabel || "Año detectado desde metadatos",
@@ -1211,6 +1307,11 @@ function bindEvents() {
   closePanelButton.addEventListener("click", closeMemory);
   previousButton.addEventListener("click", () => showRelativeMemory(-1));
   nextButton.addEventListener("click", () => showRelativeMemory(1));
+  saveTextButton.addEventListener("click", saveSelectedMemoryText);
+  deleteMemoryButton.addEventListener("click", () => {
+    if (selectedIndex >= 0) removeMemory(selectedIndex);
+  });
+  selectedTitle.addEventListener("keydown", (event) => event.stopPropagation());
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
     authMessage.textContent = "Entrando...";
@@ -1233,6 +1334,7 @@ function bindEvents() {
   selectedPhoto.addEventListener("dragstart", (event) => event.preventDefault());
 
   window.addEventListener("keydown", (event) => {
+    if (event.target === selectedTitle) return;
     if (event.key === "Escape") closeMemory();
     if (event.key === "ArrowLeft") showRelativeMemory(-1);
     if (event.key === "ArrowRight") showRelativeMemory(1);

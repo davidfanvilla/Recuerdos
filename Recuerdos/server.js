@@ -233,6 +233,16 @@ function cleanTitle(filename = "Recuerdo") {
     .replace(/\b\w/g, (letter) => letter.toUpperCase()) || "Recuerdo";
 }
 
+function normalizeMemoryText(value) {
+  return String(value || "")
+    .replace(/\r\n?/g, "\n")
+    .split("\n")
+    .map((line) => line.replace(/[ \t]+/g, " ").trim())
+    .filter(Boolean)
+    .join("\n")
+    .slice(0, 180);
+}
+
 function readAscii(buffer, offset, length) {
   let text = "";
   for (let i = 0; i < length && offset + i < buffer.length; i += 1) {
@@ -350,7 +360,7 @@ async function handleUpload(req, res) {
     await fsp.writeFile(path.join(UPLOAD_DIR, fileName), part.data, { flag: "wx" });
     const memory = {
       id,
-      title: cleanTitle(part.filename),
+      title: "",
       year,
       sourceLabel,
       fileName,
@@ -374,6 +384,18 @@ async function handleDelete(req, res, id) {
   await writeMemories(memories.filter((item) => item.id !== id));
   await fsp.rm(path.join(UPLOAD_DIR, memory.fileName), { force: true });
   return send(res, 200, { ok: true });
+}
+
+async function handleUpdate(req, res, id) {
+  const body = await parseJsonBody(req).catch(() => ({}));
+  const memories = await readMemories();
+  const memory = memories.find((item) => item.id === id);
+  if (!memory) return send(res, 404, { error: "No encontrado" });
+
+  memory.title = normalizeMemoryText(body.title);
+  memory.updatedAt = Date.now();
+  await writeMemories(memories);
+  return send(res, 200, { memory: publicMemory(memory) });
 }
 
 async function serveStatic(req, res) {
@@ -433,8 +455,9 @@ async function handleApi(req, res) {
 
   if (pathname === "/api/memories" && req.method === "POST") return handleUpload(req, res);
 
-  const deleteMatch = pathname.match(/^\/api\/memories\/([^/]+)$/);
-  if (deleteMatch && req.method === "DELETE") return handleDelete(req, res, decodeURIComponent(deleteMatch[1]));
+  const memoryMatch = pathname.match(/^\/api\/memories\/([^/]+)$/);
+  if (memoryMatch && req.method === "PATCH") return handleUpdate(req, res, decodeURIComponent(memoryMatch[1]));
+  if (memoryMatch && req.method === "DELETE") return handleDelete(req, res, decodeURIComponent(memoryMatch[1]));
 
   const imageMatch = pathname.match(/^\/api\/images\/([^/]+)$/);
   if (imageMatch && req.method === "GET") return serveImage(req, res, decodeURIComponent(imageMatch[1]));
