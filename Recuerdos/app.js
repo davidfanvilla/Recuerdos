@@ -49,6 +49,7 @@ let targetRotation = { yaw: -0.45, pitch: 0.18 };
 let dragState = null;
 let backendMode = false;
 let authenticated = false;
+let textSaveTimer = 0;
 
 function isLargeTouchPhone() {
   const hasTouch = navigator.maxTouchPoints > 0 || window.matchMedia?.("(pointer: coarse)").matches;
@@ -109,6 +110,12 @@ function saveEditedText(id, text) {
   } catch {
     // The current screen is still updated even when this browser blocks localStorage.
   }
+}
+
+function updatePointerPosition(event) {
+  const rect = canvas.getBoundingClientRect();
+  pointer.x = event.clientX - rect.left;
+  pointer.y = event.clientY - rect.top;
 }
 
 function showToast(message) {
@@ -714,6 +721,7 @@ function getRemoveButtonIndex() {
 
 function openMemory(index) {
   if (!memories[index]) return;
+  clearTimeout(textSaveTimer);
   selectedIndex = index;
   const memory = memories[index];
   const text = getMemoryText(memory);
@@ -726,12 +734,20 @@ function openMemory(index) {
 }
 
 function closeMemory() {
+  if (selectedIndex >= 0) {
+    clearTimeout(textSaveTimer);
+    void saveSelectedMemoryText({ silent: true });
+  }
   selectedIndex = -1;
   panel.classList.remove("is-open");
 }
 
 function showRelativeMemory(direction) {
   if (!memories.length) return;
+  if (selectedIndex >= 0) {
+    clearTimeout(textSaveTimer);
+    void saveSelectedMemoryText({ silent: true });
+  }
   const current = selectedIndex >= 0 ? selectedIndex : 0;
   const next = (current + direction + memories.length) % memories.length;
   openMemory(next);
@@ -767,14 +783,19 @@ async function removeMemory(index) {
   showToast("Foto quitada.");
 }
 
-async function saveSelectedMemoryText() {
-  const memory = memories[selectedIndex];
+async function persistMemoryText(memory, rawText, { silent = false, syncField = true } = {}) {
   if (!memory) return;
-
-  const text = cleanMemoryText(selectedTitle.value);
-  selectedTitle.value = text;
+  const text = cleanMemoryText(rawText);
   memory.title = text;
-  selectedPhoto.alt = text || "Recuerdo";
+
+  if (syncField && memory === memories[selectedIndex]) {
+    selectedTitle.value = text;
+    selectedPhoto.alt = text || "Recuerdo";
+  }
+
+  if (!syncField && memory === memories[selectedIndex]) {
+    selectedPhoto.alt = text || "Recuerdo";
+  }
 
   try {
     if (backendMode && authenticated && memory.server) {
@@ -784,10 +805,26 @@ async function saveSelectedMemoryText() {
     } else {
       saveEditedText(memory.id, text);
     }
-    showToast(text ? "Texto guardado." : "Texto limpiado.");
+    if (!silent) showToast(text ? "Texto guardado." : "Texto limpiado.");
   } catch (error) {
     showToast(error.message || "No se pudo guardar el texto.");
   }
+}
+
+async function saveSelectedMemoryText(options = {}) {
+  const memory = memories[selectedIndex];
+  if (!memory) return;
+  await persistMemoryText(memory, selectedTitle.value, options);
+}
+
+function queueSelectedMemoryTextSave() {
+  const memory = memories[selectedIndex];
+  if (!memory) return;
+  const draft = selectedTitle.value;
+  clearTimeout(textSaveTimer);
+  textSaveTimer = setTimeout(() => {
+    void persistMemoryText(memory, draft, { silent: true, syncField: false });
+  }, 700);
 }
 
 async function addFiles(fileList) {
@@ -1239,9 +1276,7 @@ function shuffleLayout() {
 }
 
 function handlePointerMove(event) {
-  const rect = canvas.getBoundingClientRect();
-  pointer.x = event.clientX - rect.left;
-  pointer.y = event.clientY - rect.top;
+  updatePointerPosition(event);
 
   if (!dragState) return;
 
@@ -1263,6 +1298,7 @@ function bindEvents() {
     pointer.y = -9999;
   });
   canvas.addEventListener("pointerdown", (event) => {
+    updatePointerPosition(event);
     pointer.down = true;
     dragState = {
       startX: event.clientX,
@@ -1270,15 +1306,20 @@ function bindEvents() {
       lastX: event.clientX,
       lastY: event.clientY,
       distance: 0,
+      pointerType: event.pointerType,
     };
     app.classList.add("is-rotating");
     canvas.setPointerCapture?.(event.pointerId);
   });
   canvas.addEventListener("pointerup", (event) => {
+    updatePointerPosition(event);
     pointer.down = false;
     app.classList.remove("is-rotating");
     canvas.releasePointerCapture?.(event.pointerId);
-    const wasTap = !dragState || dragState.distance < 8;
+    const touchLike = dragState?.pointerType === "touch" || isLargeTouchPhone();
+    const directDistance = dragState ? Math.hypot(event.clientX - dragState.startX, event.clientY - dragState.startY) : 0;
+    const tapDistance = Math.max(directDistance, dragState?.distance || 0);
+    const wasTap = !dragState || tapDistance < (touchLike ? 24 : 10);
     const removeIndex = getRemoveButtonIndex();
     const hoveredIndex = getHoveredMemoryIndex();
     if (wasTap && removeIndex >= 0) {
@@ -1307,10 +1348,12 @@ function bindEvents() {
   closePanelButton.addEventListener("click", closeMemory);
   previousButton.addEventListener("click", () => showRelativeMemory(-1));
   nextButton.addEventListener("click", () => showRelativeMemory(1));
-  saveTextButton.addEventListener("click", saveSelectedMemoryText);
+  saveTextButton.addEventListener("click", () => saveSelectedMemoryText());
   deleteMemoryButton.addEventListener("click", () => {
     if (selectedIndex >= 0) removeMemory(selectedIndex);
   });
+  selectedTitle.addEventListener("input", queueSelectedMemoryTextSave);
+  selectedTitle.addEventListener("blur", () => saveSelectedMemoryText({ silent: true }));
   selectedTitle.addEventListener("keydown", (event) => event.stopPropagation());
   authForm.addEventListener("submit", async (event) => {
     event.preventDefault();
