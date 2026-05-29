@@ -2,7 +2,7 @@ services:
   - type: web
     name: recuerdos-privados
     env: node
-    plan: free
+    plan: starter
     buildCommand: ""
     startCommand: node server.js
     envVars:
