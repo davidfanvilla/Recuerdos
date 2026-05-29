@@ -50,7 +50,9 @@ let authenticated = false;
 function clamp(value, min, max) {
   return Math.max(min, Math.min(max, value));
 }
-
+function isLargeTouchPhone() {
+  const hasTouch = navigator.maxTouchPoints > 0 || window.matchMedia?.("(pointer: coarse)").matches;
+  return hasTouch && width <= 520 && height >= 760;
 function randomBetween(min, max) {
   return min + Math.random() * (max - min);
 }
